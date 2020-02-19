@@ -125,7 +125,9 @@ public class BaseballElimination {
         FlowNetwork network = new FlowNetwork(otherTeams + 2 + ((otherTeams - 1) * otherTeams) / 2);
 
         int gameVertex = 1;
-        for (int i = 0; i < teamCount - 1; i++) {
+        int teamVertex = 1;
+        int numberOfGames = 0;
+        for (int i = 0; i < teamCount; i++) {
             if (i != checkIndex) {
                 for (int j = i + 1; j < teamCount; j++) {
                     if (j != checkIndex) {
@@ -133,29 +135,16 @@ public class BaseballElimination {
                         network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + i, Double.POSITIVE_INFINITY));
                         network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + j, Double.POSITIVE_INFINITY));
                         gameVertex++;
+                        numberOfGames++;
                     }
                 }
-            }
-        }
-
-        int teamVertex = 1;
-        for (int i = 0; i < teamCount; i++) {
-            if (i != checkIndex) {
                 network.addEdge(new FlowEdge(((otherTeams - 1) * otherTeams) / 2 + teamVertex, network.V() - 1, wins[checkIndex] + remaining[checkIndex] - wins[i]));
                 teamVertex++;
             }
         }
 
         ff = new FordFulkerson(network, 0, network.V() - 1);
-        double maxFlow = ff.value();
-
-        double numberOfGames = 0;
-        for (int i = 0; i < teamCount; i++) {
-            if (i != checkIndex) {
-                numberOfGames += (double) remaining[i];
-            }
-        }
-        numberOfGames = numberOfGames / 2;
+        int maxFlow = (int) ff.value();
 
         return maxFlow != numberOfGames;
     }
