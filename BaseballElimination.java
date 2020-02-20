@@ -16,6 +16,7 @@ public class BaseballElimination {
     private int[][] games;
     private int teamCount;
     private FordFulkerson ff;
+    private FlowNetwork network;
 
     // create a baseball division from given filename in format specified below
     public BaseballElimination(String filename) {
@@ -122,20 +123,27 @@ public class BaseballElimination {
 
         int otherTeams = teamCount - 1;
         int checkIndex = teamIndex(team);
-        FlowNetwork network = new FlowNetwork(otherTeams + 2 + ((otherTeams - 1) * otherTeams) / 2);
+        network = new FlowNetwork(otherTeams + 2 + ((otherTeams - 1) * otherTeams) / 2);
 
         int gameVertex = 1;
         int teamVertex = 1;
-        int numberOfGames = 0;
         for (int i = 0; i < teamCount; i++) {
             if (i != checkIndex) {
                 for (int j = i + 1; j < teamCount; j++) {
                     if (j != checkIndex) {
                         network.addEdge(new FlowEdge(0, gameVertex, games[i][j]));
-                        network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + i, Double.POSITIVE_INFINITY));
-                        network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + j, Double.POSITIVE_INFINITY));
+                        if (i < checkIndex) {
+                            network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + i + 1, Double.POSITIVE_INFINITY));
+                        } else {
+                            network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + i, Double.POSITIVE_INFINITY));
+                        }
+                        if (j < checkIndex) {
+                            network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + j + 1, Double.POSITIVE_INFINITY));
+                        } else {
+                            network.addEdge(new FlowEdge(gameVertex, ((otherTeams - 1) * otherTeams) / 2 + j, Double.POSITIVE_INFINITY));
+
+                        }
                         gameVertex++;
-                        numberOfGames++;
                     }
                 }
                 network.addEdge(new FlowEdge(((otherTeams - 1) * otherTeams) / 2 + teamVertex, network.V() - 1, wins[checkIndex] + remaining[checkIndex] - wins[i]));
@@ -144,9 +152,13 @@ public class BaseballElimination {
         }
 
         ff = new FordFulkerson(network, 0, network.V() - 1);
-        int maxFlow = (int) ff.value();
+        for (FlowEdge e : network.adj(0)) {
+            if (e.capacity() != e.flow()) {
+                return true;
+            }
+        }
 
-        return maxFlow != numberOfGames;
+        return false;
     }
 
     // subset R of teams that eliminates given team; null if not eliminated
@@ -155,23 +167,37 @@ public class BaseballElimination {
             throw new IllegalArgumentException("Argument is null");
         }
 
-        int checkIndex = teamIndex(team);
-        int otherTeams = teamCount - 1;
-
         if (!isEliminated(team)) {
             return null;
         }
 
         ArrayList<String> subset = new ArrayList<>();
-        int teamVertex = 1;
-        for (int i = 0; i < teamCount; i++) {
-            if (i != checkIndex) {
-                if (ff.inCut((otherTeams - 1) * otherTeams / 2 + teamVertex)) {
+
+        int highestPossible = wins(team) + remaining(team);
+        for (int i = 0; i < teams.length; i++) {
+            if (!teams[i].equals(team)) {
+                if (wins[i] > highestPossible) {
                     subset.add(teams[i]);
+                    return subset;
                 }
-                teamVertex++;
             }
         }
+
+        int checkIndex = teamIndex(team);
+        int otherTeams = teamCount - 1;
+
+        for (int i = 0; i < teamCount; i++) {
+            if (i < checkIndex) {
+                if (ff.inCut(i + 1 + ((otherTeams - 1) * otherTeams / 2))) {
+                    subset.add(teams[i]);
+                }
+            } else if (i > checkIndex) {
+                if (ff.inCut(i + ((otherTeams - 1) * otherTeams / 2))) {
+                    subset.add(teams[i]);
+                }
+            }
+        }
+
         return subset;
     }
 
